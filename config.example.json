@@ -1,0 +1,77 @@
+{
+  "_comment": "Copy to ~/.config/launchd-survival-kit/config.json (install.sh does this). Keys starting with _ are ignored. Every key is optional, defaults live in each script.",
+  "state_dir": "~/.local/state/launchd-survival-kit",
+
+  "bootguard": {
+    "_comment": "Only labels listed in revive are ever bootstrapped. A job you killed on purpose stays dead. Never list a job that boots itself out by design.",
+    "launch_agents_dir": "~/Library/LaunchAgents",
+    "respect_disabled": true,
+    "skip_self_terminating": true,
+    "revive": [
+      "__PREFIX__.bootguard",
+      "__PREFIX__.reaper",
+      "__PREFIX__.ram-relief",
+      "com.example.nightly-scraper",
+      "com.example.inbox-poller",
+      "com.example.agent-runner"
+    ]
+  },
+
+  "reaper": {
+    "_comment": "Only Chrome launched with a user-data-dir under one of these prefixes counts as automation. Your everyday browser is never touched.",
+    "automation_profile_prefixes": ["/private/tmp/", "/tmp/", "~/.playwright-profiles/"],
+    "protected_patterns": ["my_trading_bot\\.py", "important_sync\\.sh"],
+    "never_close_url_patterns": ["dashboard\\.example\\.com"],
+    "sidecar_pattern": "some-mcp-server|another-mcp-server",
+    "disabled_rules": [],
+    "grace_ticks": {"zombie_python": 2, "idle_cdp_chrome": 2, "idle_session": 4},
+    "renderer_cap_mb": 1500,
+    "headless_cap_mb": 1200,
+    "headless_swap_gate_mb": 5500,
+    "idle_session": {
+      "_comment": "Sweeps finished AI agent session processes that never exited. Empty process_pattern disables the rule. Example targets Claude desktop session workers.",
+      "process_pattern": "",
+      "min_age_s": 600,
+      "swap_gate_mb": 5000,
+      "busy_fd_pattern": ""
+    },
+    "disk_reap": {
+      "_comment": "Runs only when free disk drops under trigger_gb. Deletes only matches older than the age floor (minutes). Broad roots like ~ or /tmp are refused for dir targets.",
+      "trigger_gb": 8,
+      "critical_gb": 3,
+      "age_min": 360,
+      "age_min_critical": 60,
+      "targets": [
+        {"root": "~/.cache/my-agent/transcripts", "name": "*.jsonl", "kind": "file"},
+        {"root": "/private/tmp/my-agent-scratch", "kind": "dir", "mindepth": 1, "maxdepth": 1}
+      ]
+    },
+    "run_bootguard": true
+  },
+
+  "ram_relief": {
+    "swap_warn_pct": 88,
+    "disk_relief_gb": 14,
+    "disk_warn_gb": 10,
+    "freemem_warn_pct": 8,
+    "sustain_ticks": 2,
+    "alert_cooldown_s": 7200,
+    "reclaim_commands": [
+      "find ~/Library/Logs -type f -mtime +14 -delete 2>/dev/null",
+      "find \"$(getconf DARWIN_USER_TEMP_DIR)\" -maxdepth 1 -type d \\( -name 'com.google.Chrome.chrome_chrome_url_fetcher_*' -o -name 'com.google.Chrome.chrome_chrome_Unpacker_BeginUnzipping*' \\) -mmin +30 -exec rm -rf {} + 2>/dev/null"
+    ],
+    "_notify_comment": "Shell command run with the message in $LSK_MESSAGE. Swap in a curl to a Slack, Discord or ntfy webhook if you prefer.",
+    "notify_command": "osascript -e 'display notification (system attribute \"LSK_MESSAGE\") with title \"launchd survival kit\"'"
+  },
+
+  "global_slot": {
+    "max_concurrent": 1,
+    "max_hold_s": 1800,
+    "queue_grace_s": 120,
+    "admit_wait_s": 300,
+    "min_swap_free_mb": 1024,
+    "max_load1": 6.0,
+    "hi_wait_fresh_s": 15,
+    "pause_max_age_s": 7200
+  }
+}
